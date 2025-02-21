@@ -1,0 +1,31 @@
+
+    <!DOCTYPE html>
+<html>
+<head>
+    <title>Search Contact</title>
+</head>
+<body>
+    <h2>Search Contact</h2>
+    <form method="POST">
+        <input type="text" name="reg_number" placeholder="Enter Reg Number" required><br>
+        <button type="submit">Search</button>
+    </form>
+
+    {% if contact %}
+        <h3>Contact Details</h3>
+        <p>Phone: {{ contact.phone }}</p>
+        <p>Email: {{ contact.email }}</p>
+        <p>Address: {{ contact.address }}</p>
+        <p>Reg Number: {{ contact.reg_number }}</p>
+    {% endif %}
+</body>
+</html>
+
+    {% if contact %}
+        <h3>Contact Details</h3>
+        <p><strong>Phone:</strong> {{ contact.phone }}</p>
+        <p><strong>Email:</strong> {{ contact.email }}</p>
+        <p><strong>Address:</strong> {{ contact.address }}</p>
+    {% endif %}
+</body>
+</html>
