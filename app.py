@@ -12,6 +12,11 @@ app.config["MONGO_URI"] = "mongodb://localhost:27017/Login"
 mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
 
+# Access the database
+db = mongo.db  # This gives access to the "newdb" database
+
+users_collection = db.users  # Access "users" collection (like a table)
+
 # Flask-Mail Configuration (Use a real SMTP server)
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
@@ -23,6 +28,27 @@ mail = Mail(app)
 
 # --- ROUTES ---
 @app.route("/", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        email = request.form["email"]
+        password = request.form["password"]
+
+        # Check if user exists
+        if mongo.db.users.find_one({"username": username}):
+            flash("Username already exists!", "danger")
+            return redirect(url_for("register"))
+
+        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+        mongo.db.users.insert_one({"username": username, "email": email, "password": hashed_password})
+
+        flash("Account created! Please log in.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form["username"]
@@ -74,27 +100,6 @@ def reset_password(token):
         return redirect(url_for("login"))
 
     return render_template("reset_password.html")
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        username = request.form["username"]
-        email = request.form["email"]
-        password = request.form["password"]
-
-        # Check if user exists
-        if mongo.db.users.find_one({"username": username}):
-            flash("Username already exists!", "danger")
-            return redirect(url_for("register"))
-
-        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-        mongo.db.users.insert_one({"username": username, "email": email, "password": hashed_password})
-
-        flash("Account created! Please log in.", "success")
-        return redirect(url_for("login"))
-
-    return render_template("register.html")
-
 
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
