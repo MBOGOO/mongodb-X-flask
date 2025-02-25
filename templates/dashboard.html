@@ -83,7 +83,7 @@
             let errorMsg = document.getElementById("error-msg");
 
             let phonePattern = /^[0-9]{10}$/; // Ensures 10-digit phone number
-            let regNumberPattern = /^[A-Za-z0-9]+$/; // Ensures only letters & numbers
+            let regNumberPattern = /^[A-Za-z0-9/]+$/; // Ensures only letters & numbers
 
             if (!phonePattern.test(phone)) {
                 errorMsg.textContent = "Phone number must be 10 digits.";
