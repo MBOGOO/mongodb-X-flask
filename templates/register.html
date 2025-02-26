@@ -49,24 +49,45 @@
         a:hover {
             text-decoration: underline;
         }
+        .error {
+            color: red;
+        }
     </style>
 </head>
 <body>
     <h2>Register</h2>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul style="color: red; list-style: none; padding: 0;">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+
     <form method="POST">
         <input type="text" name="username" placeholder="Username" required><br>
         <input type="email" name="email" placeholder="Email" required><br>
         <input type="password" name="password" placeholder="Password" required><br>
+        <p id="error-msg" class="error"></p>
         <button type="submit">Register</button>
     </form>
+    
     <a href="{{ url_for('login') }}">Already have an account? Login</a>
 
     <script>
         document.querySelector("form").addEventListener("submit", function(event) {
             let password = document.querySelector("input[name='password']").value;
+            let errorDiv = document.getElementById("error-msg");
+
             if (password.length < 6) {
-                alert("Password must be at least 6 characters long!");
+                errorDiv.innerHTML = "⚠️ Password must be at least 6 characters long!";
                 event.preventDefault();
+            } else {
+                errorDiv.innerHTML = "";
             }
         });
     </script>

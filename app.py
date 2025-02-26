@@ -1,11 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
+from flask import flash
 from flask_mail import Mail, Message
 import secrets
 import datetime
 from email.mime.text import MIMEText
-import hashlib
 import smtplib
 
 app = Flask(__name__)
@@ -44,6 +44,8 @@ except Exception as e:
     print(f"❌ SMTP error: {e}")
 
 # --- ROUTES ---
+
+
 @app.route("/", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -53,16 +55,17 @@ def register():
 
         # Check if user exists
         if mongo.db.users.find_one({"username": username}):
-            flash("Username already exists!", "danger")
+            flash("⚠️ Username already exists!", "warning")
             return redirect(url_for("register"))
 
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
         mongo.db.users.insert_one({"username": username, "email": email, "password": hashed_password})
 
-        flash("Account created! Please log in.", "success")
+        flash("🎉 Account created successfully! Please log in.", "success")
         return redirect(url_for("login"))
 
     return render_template("register.html")
+
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -75,11 +78,13 @@ def login():
         
         if user and bcrypt.check_password_hash(user["password"], password):
             session["user"] = username
+            flash("✅ Logged in successfully!", "success")
             return redirect(url_for("dashboard"))
         else:
-            flash("Invalid credentials", "danger")
+            flash("❌ Invalid credentials. Please try again.", "danger")
 
     return render_template("login.html")
+
 
 # Function to send password reset email
 def send_reset_email(email, token):
@@ -125,24 +130,23 @@ def forgot_password():
             msg.body = f"Click the link to reset your password: {reset_link}"
             mail.send(msg)
 
-            flash("Password reset link sent to your email.", "success")
+            flash("📧 Password reset link sent to your email.", "success")
         else:
-            flash("Email not found.", "danger")
+            flash("❌ Email not found. Please try again.", "danger")
 
     return render_template("forgot_password.html")
-
 
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
     reset_entry = mongo.db.password_resets.find_one({"reset_token": token})
 
     if not reset_entry:
-        flash("Invalid or expired token.", "danger")
+        flash("❌ Invalid or expired token.", "danger")
         return redirect(url_for("login"))
 
     # Check if the token has expired
     if datetime.datetime.utcnow() > reset_entry["token_expiry"]:
-        flash("Token has expired. Please request a new reset link.", "danger")
+        flash("⚠️ Token has expired. Please request a new reset link.", "warning")
         return redirect(url_for("forgot_password"))
 
     if request.method == "POST":
@@ -157,10 +161,11 @@ def reset_password(token):
         # Delete the reset token after use
         mongo.db.password_resets.delete_one({"reset_token": token})
 
-        flash("Password reset successful! Please log in.", "success")
+        flash("✅ Password reset successful! Please log in.", "success")
         return redirect(url_for("login"))
 
     return render_template("reset_password.html", token=token)
+  
 
 
 
@@ -189,14 +194,15 @@ def search():
         contact = mongo.db.contacts.find_one({"reg_number": reg_number})
 
         if not contact:
-            flash("No contact found with this registration number.", "warning")
+            flash("❌ No user found with this registration number.", "danger")
 
     return render_template("search.html", contact=contact)
+
 
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("Logged out successfully.", "info")
+    flash("ℹ️ Logged out successfully.", "info")
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
