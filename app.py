@@ -3,6 +3,10 @@ from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail, Message
 import secrets
+import datetime
+from email.mime.text import MIMEText
+import hashlib
+import smtplib
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
@@ -21,10 +25,23 @@ users_collection = db.users  # Access "users" collection (like a table)
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USE_SSL"] = False  # Make sure this is False
 app.config["MAIL_DEFAULT_SENDER"] = "kangethealex5972@gmail.com"
 app.config["MAIL_USERNAME"] = "kangethealex5972@gmail.com"
-app.config["MAIL_PASSWORD"] = "jcrg nlxw jvlv hbhu"
+app.config["MAIL_PASSWORD"] = "furt btzz bfce kvdn"  # Use the 16-character App Password here
 mail = Mail(app)
+
+EMAIL = "kangethealex4972@gmail.com"
+PASSWORD = "furt btzz bfce kvdn"  # Use the 16-character App Password here
+
+try:
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(EMAIL, PASSWORD)
+    print("✅ SMTP login successful!")
+    server.quit()
+except Exception as e:
+    print(f"❌ SMTP error: {e}")
 
 # --- ROUTES ---
 @app.route("/", methods=["GET", "POST"])
@@ -64,6 +81,36 @@ def login():
 
     return render_template("login.html")
 
+# Function to send password reset email
+def send_reset_email(email, token):
+    reset_link = url_for("reset_password", token=token, _external=True)
+    subject = "Password Reset Request"
+    body = f"Click the link below to reset your password:\n\n{reset_link}\n\nThis link will expire in 1 hour."
+
+    try:
+        msg = Message(subject, sender=app.config["MAIL_DEFAULT_SENDER"], recipients=[email])
+        msg.body = body
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+def generate_reset_token(email):
+    """Generate a unique token for password reset and store it in a separate collection."""
+    token = secrets.token_hex(16)
+    expiration_time = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+
+    # Store the token in a separate collection
+    mongo.db.password_resets.insert_one({
+        "email": email,
+        "reset_token": token,
+        "token_expiry": expiration_time
+    })
+
+    print(f"Generated Token: {token} for {email}")  # Debugging line
+    return token
+
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":
@@ -71,8 +118,7 @@ def forgot_password():
         user = mongo.db.users.find_one({"email": email})
 
         if user:
-            reset_token = secrets.token_hex(16)
-            mongo.db.users.update_one({"email": email}, {"$set": {"reset_token": reset_token}})
+            reset_token = generate_reset_token(email)  # Use the new function
             reset_link = url_for("reset_password", token=reset_token, _external=True)
 
             msg = Message("Password Reset", sender=app.config["MAIL_USERNAME"], recipients=[email])
@@ -85,21 +131,38 @@ def forgot_password():
 
     return render_template("forgot_password.html")
 
+
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
-    user = mongo.db.users.find_one({"reset_token": token})
+    reset_entry = mongo.db.password_resets.find_one({"reset_token": token})
 
-    if not user:
+    if not reset_entry:
         flash("Invalid or expired token.", "danger")
         return redirect(url_for("login"))
 
+    # Check if the token has expired
+    if datetime.datetime.utcnow() > reset_entry["token_expiry"]:
+        flash("Token has expired. Please request a new reset link.", "danger")
+        return redirect(url_for("forgot_password"))
+
     if request.method == "POST":
         new_password = bcrypt.generate_password_hash(request.form["password"]).decode("utf-8")
-        mongo.db.users.update_one({"reset_token": token}, {"$set": {"password": new_password, "reset_token": None}})
+        
+        # Update user password
+        mongo.db.users.update_one(
+            {"email": reset_entry["email"]}, 
+            {"$set": {"password": new_password}}
+        )
+
+        # Delete the reset token after use
+        mongo.db.password_resets.delete_one({"reset_token": token})
+
         flash("Password reset successful! Please log in.", "success")
         return redirect(url_for("login"))
 
-    return render_template("reset_password.html")
+    return render_template("reset_password.html", token=token)
+
+
 
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
